@@ -1,8 +1,9 @@
 package ru.fkoban.utils;
 
-import java.io.*;
-import java.net.*;
-import java.util.List;
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStreamReader;
+import java.net.Socket;
 
 public class SimpleWialonTCPClient implements Runnable{
 
@@ -15,34 +16,26 @@ public class SimpleWialonTCPClient implements Runnable{
     }
 
     public void run(){
-
-        //String sentence;
         String serverLoginAnswer;
-        //BufferedReader inFromUser = new BufferedReader( new InputStreamReader(System.in));
         try{
-            System.out.println("entered in run method: ");
+            System.out.println("Try to send data to Wialon: ");
             Socket clientSocket = new Socket("193.193.165.165", 20332);
             DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
             BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            //sentence = inFromUser.readLine();
+
             outToServer.writeBytes(this.loginStr);
             serverLoginAnswer = inFromServer.readLine();
-            System.out.println("FROM SERVER serverLoginAnswer: " + serverLoginAnswer);
+            System.out.println("FROM SERVER AFTER LOGIN: " + serverLoginAnswer);
             if (serverLoginAnswer.equals("#AL#1")) {
-                System.out.println("we passed: " + serverLoginAnswer);
+                System.out.println("We passed, try to send data");
                 outToServer.writeBytes(this.dataStr);
             }
             serverLoginAnswer = inFromServer.readLine();
-            System.out.println("FROM SERVER serverLoginAnswer: " + serverLoginAnswer);
-
-
+            System.out.println("FROM SERVER AFTER SEND DATA ANSWER: " + serverLoginAnswer);
             clientSocket.close();
 
         } catch (Exception e) {
             System.out.println("exception e=" + e.getMessage());
         }
-
-
-
     }
 }

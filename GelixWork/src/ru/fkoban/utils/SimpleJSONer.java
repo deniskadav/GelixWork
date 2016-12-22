@@ -5,7 +5,6 @@ import ru.fkoban.gelix.GelixOnePacket;
 import java.util.Locale;
 
 public class SimpleJSONer {
-
     public static String makeJSONFromProcessingObject(GelixOnePacket processingGelixObject){
         return String.format(new Locale("en"),"{\"sdt\":\"%s\",\"ts\":%ts,\"lat\":%.6f,\"lon\":%.6f,\"speed\":%.1f,\"dir\":%.1f,\"sats\":%d,\"in0\":%.3f,\"in1\":%.3f,\"in2\":%.3f,\"in3\":%.3f,\"in4\":%d,\"in5\":%d,\"in6\":%d,\"in7\":%d,\"com\":%d}",
                 processingGelixObject.strDateTime,

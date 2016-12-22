@@ -4,79 +4,66 @@ import ru.fkoban.utils.SimpleJSONer;
 import ru.fkoban.utils.SimpleWialonTCPClient;
 import ru.fkoban.utils.WialonIPS;
 
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.*;
-
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
 public class GelixParser {
     private int timeDiff = 3;
     private int startOffset = 8;
-    private int len = 0;
+    private int len;
     private String packet;
     private String packetInProcess;
-
     private GelixOnePacket processingGelixObject;
-
     private List<String> jsonList = new ArrayList<String>();
     private List<String> wiaIPSList = new ArrayList<String>();
-    public String outputJSON;
-
-
 
     public GelixParser(String inputData,int len){
-        this.len = (len+1)*2;//1 byte CRC at the end of each packet and one for all
-
+        this.len = (len + 1) * 2;//1 byte CRC at the end of each packet and one for all
         this.packet = inputData;
-
     }
 
-    private int get_2b(int offset) {
-        String hexValue = packetInProcess.substring(offset,offset+4);
+    private int get2bytes(int offset) {
+        String hexValue = packetInProcess.substring(offset,offset + 4);
         return Integer.parseInt(hexValue,16);
     }
 
-    private int get_1b(int offset) {
-        String hexValue = packetInProcess.substring(offset,offset+2);
+    private int get1b(int offset) {
+        String hexValue = packetInProcess.substring(offset,offset + 2);
         return Integer.parseInt(hexValue,16);
     }
 
-    private String c_time(long val) {
-        int hh  =  (int)val/3600 ;
-        int mm  = (int) (val - hh*3600)/60 ;
-        int ss  = (int) (val - hh*3600 - mm*60);
+    private String getTime(long val) {
+        int hh  =  (int) val / 3600 ;
+        int mm  = (int) (val - hh * 3600) / 60 ;
+        int ss  = (int) (val - hh * 3600 - mm * 60);
         return String.format("%02d:%02d:%02d", hh, mm, ss);
     }
 
-    private String c_date( long val ){
+    private String getDate( long val ){
         int dd = (int)val & 0x1F;
-
-        if (dd==0) dd=1;
-        int mm = (int)((val>>5) & 0x0F);
-        int yy = (int)((val>>9) & 0x1F);
-
-        if (mm==2){
-
-            if ((yy==8)||(yy==12)||(yy==16)||(yy==20)||(yy==24)){
-
-                if (dd==30){
-                    dd=1;
-                    mm=3;
+        if (dd == 0) dd = 1;
+        int mm = (int)((val >> 5) & 0x0F);
+        int yy = (int)((val >> 9) & 0x1F);
+        if (mm == 2){
+            if ((yy == 8)||(yy == 12)||(yy == 16)||(yy == 20)||(yy == 24)){
+                if (dd == 30){
+                    dd = 1;
+                    mm = 3;
                 }
             }
-
             else{
-                if (dd==29){
-                    dd=1;
-                    mm=3;
+                if (dd == 29){
+                    dd = 1;
+                    mm = 3;
                 }
             }
         }
-
         else
-        if ((mm==4)||(mm==6)||(mm==9)||(mm==11)){
-            if (dd==31){
-                dd=1;
+        if ((mm ==4)||(mm == 6)||(mm ==9)||(mm == 11)){
+            if (dd == 31){
+                dd = 1;
                 mm++;
             }
         }
@@ -84,22 +71,19 @@ public class GelixParser {
     }
 
     private void calculateDateTime(int offset){
-        int ti = get_2b(offset);//				# time
-        int da = get_2b(offset + 4);//				# date
+        int ti = get2bytes(offset);//		time
+        int da = get2bytes(offset + 4);//	date
         if ( (da & 0x8000) > 0 ) {
             ti = ti + 0x10000;
         }
 
-        if( ti+timeDiff*3600 >= 24*3600 ) {
+        if( ti + timeDiff * 3600 >= 24 * 3600 ) {
             da++;
-            ti += timeDiff*3600 - 24*3600;
+            ti += timeDiff * 3600 - 24 * 3600;
         }
-        else ti += timeDiff*3600;
+        else ti += timeDiff * 3600;
 
-        String strTi   = c_time( ti );
-        String strDa   = c_date( da & 0x7FFF );
-
-        this.processingGelixObject.strDateTime = strDa + " " + strTi;
+        this.processingGelixObject.strDateTime = getTime(ti) + " " + getDate(da & 0x7FFF);
         SimpleDateFormat df = new SimpleDateFormat("yy-MM-dd HH:mm:ss");
 
         try{
@@ -109,125 +93,105 @@ public class GelixParser {
             //if error date formatting
             this.processingGelixObject.timeStamp = new Date();
         }
-
-
     }
 
-    private double get_ll( int offset ) {
+    private double getLatLon(int offset) {
         String dotc = packetInProcess.substring(offset, offset + 1);
 
         if( !dotc.equals("A")) { return 0.0; }//if coordinate marked as invalid we return 0
-        int dot = (Integer.parseInt(dotc,16)>>1 ) + 1;//dot means digits after dot, dont ask me why
+        int dot = (Integer.parseInt(dotc,16) >> 1 ) + 1;//dot means digits after dot, dont ask me why
 
         double multiplier = Math.pow(10, dot);
-
-        long pos =    Long.parseLong(packetInProcess.substring(offset, offset + 8),16) & 0x1FFFFFFF;	// GGGMMDDDD
+        long pos = Long.parseLong(packetInProcess.substring(offset, offset + 8),16) & 0x1FFFFFFF;	// GGGMMDDDD
 
         double mmPart = pos % multiplier;
-        int ggPart  = (int)((pos-mmPart)/multiplier);
-
-        double mm  = mmPart/1000000*5/3;  //convert to degrees from minutes
+        int ggPart  = (int)((pos - mmPart) / multiplier);
+        double mm  = mmPart / 1000000 * 5 / 3;  //convert to degrees from minutes
         return ggPart + mm;
     }
 
     private void calculateLatLon(int offset){
-        this.processingGelixObject.lat = get_ll(offset);				//4 bytes of latitude
-
-        this.processingGelixObject.lon = get_ll(offset + 8);			//4 bytes of longtitude
-
+        this.processingGelixObject.lat = getLatLon(offset);				//4 bytes of latitude
+        this.processingGelixObject.lon = getLatLon(offset + 8);			//4 bytes of longtitude
     }
 
     private double fractal(int val) {
-        double ret = val&0x3FFF;
-        if( (val & 0x4000) >0) ret = ret / 10;
-        if( (val & 0x8000) >0) ret = ret * (-1);
+        double ret = val & 0x3FFF;
+        if( (val & 0x4000) > 0) ret = ret / 10;
+        if( (val & 0x8000) > 0) ret = ret * (-1);
         return ret;
     }
 
     private void calculate5bAnalogValues(int offset){
         //4 analog inputs is coded in 5 bytes
+        int a0 = (Integer.parseInt(packetInProcess.substring(offset, offset + 3), 16) >> 2) & 0x03FF ;		// xxx0000000
+        int a1 = (Integer.parseInt(packetInProcess.substring(offset + 2, offset + 3 + 2), 16)) & 0x03FF ;// 00xxx00000
+        int a2 = (Integer.parseInt(packetInProcess.substring(offset + 5, offset + 3 + 5), 16) >> 2 ) & 0x03FF ;// 00000xxx00
+        int a3 = (Integer.parseInt(packetInProcess.substring(offset + 7, offset + 3 + 7), 16)) & 0x03FF ;// 0000000xxx
 
-        int a0 = (Integer.parseInt(packetInProcess.substring(offset, offset + 3), 16) >>2)& 0x03FF ;		// xxx0000000
-        int a1 = (Integer.parseInt(packetInProcess.substring(offset + 2, offset + 3 + 2), 16))& 0x03FF ;
-        int a2 = (Integer.parseInt(packetInProcess.substring(offset + 5, offset + 3 + 5), 16) >>2 )& 0x03FF ;
-        int a3 = (Integer.parseInt(packetInProcess.substring(offset + 7, offset + 3 + 7), 16))& 0x03FF ;
-
-        this.processingGelixObject.in0 = a0*50/1023;
-        this.processingGelixObject.in1 = a1*50/1023;
-        this.processingGelixObject.in2 = a2*50/1023;
-        this.processingGelixObject.in3 = a3*50/1023;
-
+        this.processingGelixObject.in0 = a0 * 50 / 1023;
+        this.processingGelixObject.in1 = a1 * 50 / 1023;
+        this.processingGelixObject.in2 = a2 * 50 / 1023;
+        this.processingGelixObject.in3 = a3 * 50 / 1023;
     }
 
+    /**
+     * input 00027F7DA6005264A3410AEEA45D9062850A404095433D01013E80000000743174070010C31B00FFFF04
+     * output la=54.99047,lo=73.40112,sp=27.565,dig=1,co=82.9,ma=64,an=12.21,0,0,0,cnt=29745,29703,16,49947,com=65535
+     * input 44044C36A6055264A33C4833A32FF268850A80415B4A9D0101420000000046052000028874600001517C
+     * output la=54.47048,lo=53.78982,sp=64.195,dig=1,co=271.7,ma=0,an=12.90,0,0,0,cnt=17925,8192,648,29792,com=337
+     *
+     * @param onePacket - one data packet from device log
+     */
     private void parseParams(String onePacket){
-        //	0000D8D0A3BF4ED1A34EE33EA2ECCD2985084040D64A8C0104400000000047950EE9FFFF7E   74 symbols mean 37 bytes (36+crc)
-        //la=55.83605,lo=49.12241,sp=39.59,dig=4,co=270,ma=64,an=12.51,0,0,0,cnt=18325,3817,0,0,com=65535,0,why=err calc
-        //300048005_00027F7DA6005264A3410AEEA45D9062850A404095433D01013E80000000743174070010C31B00FFFF04_la=54.99047,lo=73.40112,sp=27.565,dig=1,co=82.9,ma=64,an=12.21,0,0,0,cnt=29745,29703,16,49947,com=65535,0,why=norma
-        //300044008_44044C36A6055264A33C4833A32FF268850A80415B4A9D0101420000000046052000028874600001517C_la=54.47048,lo=53.78982,sp=64.195,dig=1,co=271.7,ma=0,an=12.90,0,0,0,cnt=17925,8192,648,29792,com=337,0,why=norma
-
-
         this.packetInProcess = onePacket;
-
         calculateDateTime(startOffset);
-        calculateLatLon(startOffset+8);
-        this.processingGelixObject.sats = get_1b(startOffset + 26) & 0x0F;		// satellites used
-        //$za = get_1b($start_offset + 26) >> 4;			# zone alarm status
-        //$ma = get_1b($start_offset + 28)&0x7F;			# macro id
-        this.processingGelixObject.speed = fractal(get_2b(startOffset + 30))*1.85;	// speed initially in mph
-        this.processingGelixObject.dir  = fractal(get_2b(startOffset + 34));		// course in degrees
+        calculateLatLon(startOffset + 8);
+        this.processingGelixObject.sats = get1b(startOffset + 26) & 0x0F;		// satellites used
+        //za = get1b(start_offset + 26) >> 4;			//zone alarm status
+        //ma = get1b(start_offset + 28)&0x7F;			// macro id
+        this.processingGelixObject.speed = fractal(get2bytes(startOffset + 30)) * 1.85;	// speed initially in mph
+        this.processingGelixObject.dir  = fractal(get2bytes(startOffset + 34));		// course in degrees
 
         calculate5bAnalogValues(startOffset + 42);//fill in0-in3
 
+        this.processingGelixObject.in4 = get2bytes(startOffset + 52);
+        this.processingGelixObject.in5 = get2bytes(startOffset + 56);
+        this.processingGelixObject.in6 = get2bytes(startOffset + 60);
+        this.processingGelixObject.in7 = get2bytes(startOffset + 64);
 
-        this.processingGelixObject.in4 = get_2b(startOffset + 52);
-        this.processingGelixObject.in5 = get_2b(startOffset + 56);
-        this.processingGelixObject.in6 = get_2b(startOffset + 60);
-        this.processingGelixObject.in7 = get_2b(startOffset + 64);
-
-        if (onePacket.length() >= (startOffset + 74))//get2b need to read 4 symbols, need to check if exists
-            this.processingGelixObject.rs232 = get_2b(startOffset + 70);
-
-
-
+        if (onePacket.length() >= (startOffset + 74))//get2bytes need to read 4 symbols, need to check if exists
+            this.processingGelixObject.rs232 = get2bytes(startOffset + 70);
         //TO DO need check is_valid_coords later
-
     }
 
     private String getOnePacket(int idx){
-        return this.packet.substring(this.len*idx,this.len*idx+this.len);
+        return this.packet.substring(this.len * idx,this.len * idx+this.len);
     }
 
-
     public void processData(){
-        for(int i=0;i < (this.packet.length()/this.len);i++) {//���� �� ���������� ����� � ������
-            String onePacket = getOnePacket(i);	//�������� ��������� ����� � $packet
+        for(int i = 0;i < (this.packet.length() / this.len);i++) {
+            String onePacket = getOnePacket(i);
             System.out.println("onePacket="+onePacket);
-            GelixOnePacket gOnePacket = new GelixOnePacket();
-            this.processingGelixObject = gOnePacket;
+            this.processingGelixObject = new GelixOnePacket();
             parseParams(onePacket);
             this.jsonList.add(SimpleJSONer.makeJSONFromProcessingObject(this.processingGelixObject));
             this.wiaIPSList.add(WialonIPS.makeIPSFromProcessingObject(this.processingGelixObject));
         }
-
-        /*for(String oneElem : this.jsonList){
-            System.out.println(oneElem);
-        }
-
-        for(String oneElem : this.wiaIPSList){
-            //System.out.println(oneElem);
-        }*/
-
-
     }
 
+    /**
+     * try to send data to Wialon server directly (193.193.165.165:20332 for WialonIPS)
+     * 1. we need to authorize like #L#imei;password\r\n
+     * 2. server answer us #AL#1\r\n or #AL#0\r\n  if first one - we passed and continue
+     * #D#date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params\r\n
+     * #D#date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params\r\n
+     * #D#date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params\r\n
+     * 3. server send us confirmation #AD#1\r\n
+     *
+     * @param imei - unique id of device, most of time it is IMEI of GPRS modem
+     */
     public void sendDataToWialonIPSServer(String imei){
-        //try to send data to wialon server directly (193.193.165.165:20332 for WialonIPS)
-        //1. we need to authorize like #L#imei;password\r\n
-        // server answer us #AL#1\r\n or #AL#0\r\n  if first one - we passed and continue
-        //#D#date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params\r\n
-        //#D#date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params\r\n
-        //#D#date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params\r\n
-        //server send us confirmation #AD#1\r\n
         String allIPSStrings = "";
         for(String oneElem : this.wiaIPSList){
             allIPSStrings += oneElem;
@@ -235,9 +199,6 @@ public class GelixParser {
         }
 
         SimpleWialonTCPClient client  = new SimpleWialonTCPClient("#L#"+imei+";NA\r\n",allIPSStrings);
-
         new Thread(client).start();
     }
-
-
 }

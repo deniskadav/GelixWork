@@ -8,8 +8,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 public class WialonIPS {
-
-
     private int calcCRC16(String data){
         final int[] crc16_table =   {0x0000,0xC0C1,0xC181,0x0140,0xC301,0x03C0,0x0280,0xC241,
                 0xC601,0x06C0,0x0780,0xC741,0x0500,0xC5C1,0xC481,0x0440,
@@ -56,23 +54,16 @@ public class WialonIPS {
 
 
     private static String makeWiaDateTime(GelixOnePacket processingGelixObject){
-        final DateTimeFormatter formatter =
-                DateTimeFormatter.ofPattern("ddMMyy;HHmmss");
-
-        //System.out.println("processingGelixObject.timeStamp.getTime()="+processingGelixObject.timeStamp.getTime());
-
-
-        return Instant.ofEpochSecond(processingGelixObject.timeStamp.getTime()/1000)
+        final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("ddMMyy;HHmmss");
+        return Instant.ofEpochSecond(processingGelixObject.timeStamp.getTime() / 1000)
                 .atZone(ZoneId.of("UTC"))
-                .format(formatter);   // => '2013-06-27 09:31:00'
+                .format(formatter);
     }
 
     private static String makeWiaLatLon(GelixOnePacket processingGelixObject){
         //this method makes
         //5124.9130;N; from 51.415217
         //03454.1077;E from 34.901795
-
-
         long latDegreesIntPart = (long) processingGelixObject.lat;
         double latDegreesFractPart = processingGelixObject.lat - latDegreesIntPart;
 
@@ -90,23 +81,26 @@ public class WialonIPS {
         }
 
         String needLeatZeroeBeforeLon = "";
-        if (lonDegreesIntPart<100) needLeatZeroeBeforeLon = "0";
+        if (lonDegreesIntPart < 100) needLeatZeroeBeforeLon = "0";
 
         return String.format(new Locale("en"),"%d%.4f;%s;%s%d%.4f;%s",
                                 latDegreesIntPart,
-                                latDegreesFractPart*60,
+                                latDegreesFractPart * 60,
                                 earthHalfLat,
                                  needLeatZeroeBeforeLon,
                                 lonDegreesIntPart,
-                                lonDegreesFractPart*60,
+                                lonDegreesFractPart * 60,
                                 earthHalfLon
         );
     }
 
+    /**
+     *  Method makes Wialon IPS string
+     *
+     * @param processingGelixObject object to transform into IPS protocol string
+     * @return //#D#date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params\r\n
+     */
     public static String makeIPSFromProcessingObject(GelixOnePacket processingGelixObject){
-
-        //#D#date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params\r\n
-
         return String.format(new Locale("en"),"#D#%s;%s;%d;%d;NA;%d;NA;NA;NA;%.2f,%.2f,%.2f,%.2f;NA;cnt0:1:%d,cnt1:1:%d,cnt2:1:%d,cnt3:1:%d,rs232:1:%d\r\n",
                 makeWiaDateTime(processingGelixObject),
                 makeWiaLatLon(processingGelixObject),

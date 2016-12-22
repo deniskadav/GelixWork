@@ -10,17 +10,15 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-
-
-@WebServlet(name = "ServletInsertPack")
+@WebServlet(name = "InsertPack")
 public class InsertPack extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
        //just void
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        // Set response content type
-        response.setContentType("text/html");
+        response.setStatus(200);
+        response.setContentType("text/plain");
         String answer = "OK\r\n";
 
         //for gelix with 2322 and without com
@@ -43,10 +41,6 @@ public class InsertPack extends HttpServlet {
 
             gp.processData();//this will generate JSON array of packets, WialonIPSArray  and send it to wialon server
             gp.sendDataToWialonIPSServer(is);
-            //answer = "QueryString<br>"+ request.getQueryString();
-            //answer += "<br>";
-            //answer += "\r\n";
-
         }
         request.setAttribute("answer", answer);
 
