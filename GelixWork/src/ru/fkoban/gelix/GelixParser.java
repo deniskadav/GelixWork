@@ -83,7 +83,7 @@ public class GelixParser {
         }
         else ti += timeDiff * 3600;
 
-        this.processingGelixObject.strDateTime = getTime(ti) + " " + getDate(da & 0x7FFF);
+        this.processingGelixObject.strDateTime = getDate(da & 0x7FFF) + " " + getTime(ti)  ;
         SimpleDateFormat df = new SimpleDateFormat("yy-MM-dd HH:mm:ss");
 
         try{
