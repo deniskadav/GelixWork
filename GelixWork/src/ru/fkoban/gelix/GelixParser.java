@@ -46,7 +46,7 @@ public class GelixParser {
         if (dd == 0) dd = 1;
         int mm = (int)((val >> 5) & 0x0F);
         int yy = (int)((val >> 9) & 0x1F);
-        if (mm == 2){
+        if (mm == 2){//check february
             if ((yy == 8)||(yy == 12)||(yy == 16)||(yy == 20)||(yy == 24)){
                 if (dd == 30){
                     dd = 1;
