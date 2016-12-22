@@ -37,7 +37,7 @@ public class InsertPack extends HttpServlet {
             //TO DO check wrong_data_length from php sources
             answer = "ERR"+data.length()+"\r\n";
         } else {
-            GelixParser gp = new ru.fkoban.gelix.GelixParser(data,Integer.parseInt(onePacketLength));//create class with data and onepacketlength options
+            GelixParser gp = new GelixParser(data,Integer.parseInt(onePacketLength));//create class with data and onepacketlength options
 
             gp.processData();//this will generate JSON array of packets, WialonIPSArray  and send it to wialon server
             gp.sendDataToWialonIPSServer(is);
